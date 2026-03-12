@@ -151,8 +151,7 @@
   /* All direct content inside page capped at 700px */
   .home-title, .home-subtitle, .home-text, .home-links,
   .page-title, .page-intro,
-  .product-entry, .value-entry, .curation-section,
-  .studio-grid { max-width: 700px; }
+  .product-entry, .value-entry, .curation-section { max-width: 700px; }
 
   /* HOME PAGE */
   .home-title {
@@ -437,59 +436,54 @@
   }
 
   /* STUDIO PAGE */
-  .studio-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .studio-img-wrapper {
-    cursor: pointer;
-    overflow: hidden;
-    margin-bottom: 16px;
-    max-width: 120px;
-    max-height: 120px;
-    transition: max-width 0.42s ease, max-height 0.42s ease;
-    /* border removed to match requested UI */
-    display: inline-block;
-  }
-
-  .studio-img-wrapper img,
-  .studio-img-placeholder {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.42s ease, opacity 0.25s ease;
-    background: #f0f0f0;
-  }
-
-  .studio-img-placeholder {
+  .studio-carousel-wrapper {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    color: #999;
-    font-family: var(--font);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    cursor: pointer;
+    width: 100%;
+    margin-top: 24px;
   }
 
-  /* Expanded state: allow the wrapper to grow and the image to show full portrait/landscape
-     without forcing an artificial aspect ratio. Use max-height to constrain large images. */
-  .studio-img-wrapper.expanded {
-    max-width: 560px;
-    max-height: 80vh;
+  .studio-carousel {
+    display: flex;
+    overflow-x: scroll;
+    scrollbar-width: none;
+    gap: 16px;
+    flex: 1;
+    scroll-behavior: smooth;
   }
 
-  .studio-img-wrapper.expanded img,
-  .studio-img-wrapper.expanded .studio-img-placeholder {
+  .studio-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .studio-carousel-card {
+    flex-shrink: 0;
     width: auto;
-    height: auto;
-    max-width: 100%;
-    max-height: 80vh;
-    object-fit: contain;
+  }
+
+  .studio-carousel-card img {
+    display: block;
+    height: 60vh;
+    width: auto;
+    object-fit: unset;
+  }
+
+  .studio-carousel-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #333;
+    padding: 0 12px;
+    flex-shrink: 0;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .studio-carousel-btn:hover {
+    opacity: 1;
   }
 
   /* SCROLLBAR */
@@ -958,8 +952,10 @@
       <div class="curation-section-header">Photography</div>
       <p class="page-intro">My study of the universal oneness across nature, finding a shared pulse through intentional composition, human presence, and raw emotion.</p>
 
-      <div class="studio-grid" id="studio-grid">
-        <!-- 10 placeholder images -->
+      <div class="studio-carousel-wrapper">
+        <button class="studio-carousel-btn" onclick="studioPrev(this)" aria-label="Previous">&#8592;</button>
+        <div class="studio-carousel" id="studio-carousel"></div>
+        <button class="studio-carousel-btn" onclick="studioNext(this)" aria-label="Next">&#8594;</button>
       </div>
     </div>
 
@@ -1106,33 +1102,61 @@
     link.click();
   }
 
-  // ---- STUDIO GRID ----
+  // ---- STUDIO CAROUSEL ----
   function buildStudioGrid() {
-    const grid = document.getElementById('studio-grid');
+    const carousel = document.getElementById('studio-carousel');
     const photoFiles = [
       'IMG_1591.JPG', 'IMG_1583.JPG', 'IMG_1586.JPG', 'IMG_1577.JPG',
       'IMG_1579.JPG', 'IMG_1585.JPG', 'IMG_1589.JPG', 'IMG_1580.JPG',
       'IMG_1576.JPG', 'IMG_1582.JPG', 'IMG_1584.JPG', 'IMG_1587.JPG',
       'IMG_1590.JPG', 'IMG_1592.JPG'
     ];
+
+    // Build original cards
     photoFiles.forEach((fileName, index) => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'studio-img-wrapper';
-      wrapper.id = 'studio-img-' + (index + 1);
+      const card = document.createElement('div');
+      card.className = 'studio-carousel-card';
       const img = document.createElement('img');
       img.src = `img/${fileName}`;
       img.alt = `Studio Image ${index + 1}`;
-      img.className = 'studio-img-content';
-      wrapper.appendChild(img);
-      wrapper.addEventListener('click', () => toggleStudioImage(wrapper));
-      grid.appendChild(wrapper);
+      card.appendChild(img);
+      carousel.appendChild(card);
+    });
+
+    // Clone 100 times for infinite scroll
+    const original = Array.from(carousel.children);
+    for (let i = 0; i < 100; i++) {
+      original.forEach(card => carousel.appendChild(card.cloneNode(true)));
+    }
+
+    // Wait for images to load before setting scroll position to middle set
+    const imgs = Array.from(carousel.querySelectorAll('img'));
+    let loaded = 0;
+    function onLoad() {
+      loaded++;
+      if (loaded === original.length) {
+        const setWidth = original.reduce((sum, card) => sum + card.offsetWidth + 16, 0);
+        carousel.scrollLeft = setWidth * 50;
+      }
+    }
+    original.forEach(card => {
+      const img = card.querySelector('img');
+      if (img.complete) { onLoad(); } else { img.addEventListener('load', onLoad); }
     });
   }
 
-  function toggleStudioImage(wrapper) {
-    const wasExpanded = wrapper.classList.contains('expanded');
-    document.querySelectorAll('.studio-img-wrapper').forEach(w => w.classList.remove('expanded'));
-    if (!wasExpanded) wrapper.classList.add('expanded');
+  function studioPrev(btn) {
+    const carousel = btn.parentElement.querySelector('.studio-carousel');
+    const card = carousel.querySelector('.studio-carousel-card');
+    const step = card ? card.offsetWidth + 16 : 496;
+    carousel.scrollBy({ left: -step, behavior: 'smooth' });
+  }
+
+  function studioNext(btn) {
+    const carousel = btn.parentElement.querySelector('.studio-carousel');
+    const card = carousel.querySelector('.studio-carousel-card');
+    const step = card ? card.offsetWidth + 16 : 496;
+    carousel.scrollBy({ left: step, behavior: 'smooth' });
   }
 
   // ---- INIT ----
